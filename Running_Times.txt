@@ -1,0 +1,57 @@
+
+
+
+QUERY #1:
+db.freeway_loopdata.find( { speed : { $gt : 100 } } ).explain("executionStats");
+
+result: 6972
+
+"executionSuccess" : true,
+                "nReturned" : 6972,
+                "executionTimeMillis" : 6853,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 17908260,
+
+QUERY #2:
+
+db.freeway_loopdata.find( { $and: [{ detectorid: { $in: detectorids } }, {starttime: { "$gte" : ISODate("2011-09-21"), "$lt" : ISODate("2011-09-22")}}]} ).explain("executionStats");
+
+
+"executionSuccess" : true,
+                "nReturned" : 12960,
+                "executionTimeMillis" : 7065,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 17908260,
+
+QUERY #3:
+
+"executionSuccess" : true,
+                "nReturned" : 12960,
+                "executionTimeMillis" : 7110,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 17908260,
+
+QUERY #4:
+
+"executionStats" : {
+                "executionSuccess" : true,
+                "nReturned" : 2166,
+                "executionTimeMillis" : 11421,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 17908260,
+
+
+QUERY #5:
+
+"executionStats" : {
+                "executionSuccess" : true,
+                "nReturned" : 15884,
+                "executionTimeMillis" : 11577,
+                "totalKeysExamined" : 0,
+                "totalDocsExamined" : 17908260,
+
+
+QUERY #6:
+
+This query takes basically no time to execute since it involves only searching freeway_stations and the results return so fast.
+

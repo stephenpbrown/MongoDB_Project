@@ -1,0 +1,188 @@
+QUERY #1:
+
+var results = db.freeway_loopdata.find( { speed : { $gt : 100 } } ).count();
+
+print(results);
+
+
+QUERY #2:
+
+// Gets 3 detectorids and stores them in detectors
+var detectors = null;
+detectors = db.freeway_detectors.find( { locationtext : "Foster NB" }, {detectorid : 1} ).toArray();
+
+// Get all the detectorids in the proper form
+var detectorids = detectors.map(function (x) { return x.detectorid});
+
+// Finds all the data matching the starttime and the detectorids
+var data = null
+data = db.freeway_loopdata.find({ 
+	$and: [
+		{detectorid: { $in: detectorids } }, 
+		{starttime: { "$gte" : ISODate("2011-09-21"), "$lt" : ISODate("2011-09-22")}}
+	]
+}).toArray();
+
+// Insert the array into a collection and then sum the volumes
+db.volumes.insert(data);
+var results = db.volumes.aggregate([ { $group: { _id: null, summedVolume: {$sum: "$volume"}}}]);
+
+print(results);
+
+// Free up the collection to save space
+db.volumes.drop();
+
+
+
+
+QUERY #3:
+
+// Find the stationID for Foster NB
+var stationInfo = db.freeway_stations.find( { locationtext : "Foster NB" }).toArray();
+
+// Find all the detectorIDs associated with the stationID
+var detectorIDs = db.freeway_detectors.find( { stationid : stationInfo[0].stationid }, { detectorid : 1}).toArray();
+
+// Get all the detectorids in the proper form
+var detectorids = detectorIDs.map(function (x) { return x.detectorid});
+
+// Use the detectorIDs to find all the data in freeway_loopdata
+var data = db.freeway_loopdata.find({ 
+	$and: [{ 
+		detectorid: { $in: detectorids } }, 
+		{starttime: { "$gte" : ISODate("2011-09-21"), "$lt" : ISODate("2011-09-22")}
+	}]
+}).toArray();
+
+// Create collection and insert data into it to be used to aggregate with
+db.travelTimes.insert(data);
+
+// Aggregate the data and calculate the travel time for 5 minute intervals
+db.travelTimes.aggregate([ 
+	{ "$group": { 
+		"_id" : { 
+			"hour": { "$hour": "$starttime" },
+			"5_minute_intervals" : { "$subtract": [ 
+				{ "$minute": "$starttime" }, 
+				{ "$mod": [ {"$minute": "$starttime"}, 5] }]
+			}
+		}, 
+		"avgSpeed" : { "$avg": "$speed" }
+	}},
+	{"$project": { "result_in_seconds" : { "$multiply": [3600, { "$divide" : [stationInfo[0].length, "$avgSpeed"]}]}}}
+]);
+
+// Free up the collection to save space
+db.travelTimes.drop();
+
+
+
+
+QUERY #4:
+
+// Find the stationID for Foster NB
+var stationInfo = db.freeway_stations.find( { locationtext : "Foster NB" }).toArray();
+
+// Find all the detectorIDs associated with the stationID
+var detectorIDs = db.freeway_detectors.find( { stationid : stationInfo[0].stationid }, { detectorid : 1}).toArray();
+
+// Get all the detectorids in the proper form
+var detectorids = detectorIDs.map(function (x) { return x.detectorid});
+
+// Use the detectorIDs to find all the data in freeway_loopdata
+var data = db.freeway_loopdata.find( 
+	{ $and: [
+		{ detectorid: { $in: detectorids } }, 
+		{ $or: [ 
+			{starttime: { "$gte" : ISODate("2011-09-21T07:00:00Z"), "$lte" : ISODate("2011-09-21T09:00:00Z")}}, 
+			{starttime: { "$gte" : ISODate("2011-09-21T16:00:00Z"), "$lte" : ISODate("2011-09-21T18:00:00Z")}}
+		]}]} 
+).toArray();
+
+// Create collection and insert data into it to be used to aggregate with
+db.travelTimes.insert(data);
+
+// Aggregate the data and calculate the travel time for 5 minute intervals
+db.travelTimes.aggregate([ 
+	{ "$group": { 
+		"_id" : null,
+		"avgSpeed" : { "$avg": "$speed" }
+	}},
+	{"$project": { "result_in_seconds" : { "$multiply": [3600, { "$divide" : [stationInfo[0].length, "$avgSpeed"]}]}}}
+]);
+
+// Free up the collection to save space
+db.travelTimes.drop();
+
+
+
+
+QUERY #5:
+
+// Find the highwayid for NORTH
+var highwayID = db.highways.find( { direction: "NORTH" } ).toArray();
+
+// Find all detectorids for highwayid
+var detectorIDs = db.freeway_detectors.find( { highwayid: highwayID[0].highwayid } ).toArray();
+
+// Find station info for the lengths
+var stationInfo = db.freeway_stations.find( { highwayid : highwayID[0].highwayid}).toArray();
+
+// Get all the detectorids in the proper form
+var detectorids = detectorIDs.map(function (x) { return x.detectorid});
+
+// Get all the data based off the detectorids and times
+var data = db.freeway_loopdata.find( 
+	{ $and: [
+		{ detectorid: { $in: detectorids } }, 
+		{ $or: [ 
+			{starttime: { "$gte" : ISODate("2011-09-21T07:00:00Z"), "$lte" : ISODate("2011-09-21T09:00:00Z")}}, 
+			{starttime: { "$gte" : ISODate("2011-09-21T16:00:00Z"), "$lte" : ISODate("2011-09-21T18:00:00Z")}}
+		]}]}
+).toArray();
+
+// Find the sum of the lengths
+var summedLengths = 0
+stationInfo.map(function (x) { summedLengths += x.length});
+
+db.travelTimes.insert(data);
+
+db.travelTimes.aggregate([ 
+	{ "$group": { 
+		"_id" : null,
+		"avgSpeed" : { "$avg": "$speed" }
+	}},
+	{"$project": { "result_in_minutes" : { "$multiply": [60, { "$divide" : [summedLengths, "$avgSpeed"]}]}}}
+]);
+
+// Free up the collection to save space
+db.travelTimes.drop();
+
+
+
+
+QUERY #6:
+
+// The station we're going to
+var toStation = db.freeway_stations.find( { locationtext : "Columbia to I-205 NB" } ).toArray();
+
+// The station we're going from
+var fromStation = db.freeway_stations.find( { locationtext: "Johnson Cr NB" } ).toArray();
+
+// Initialize variable to hold route
+var route = "";
+
+// Loop through and find all downstream stationids until you find the station you're going to
+for(var i = fromStation[0].stationid; i != toStation[0].stationid;){
+
+	var cursor = db.freeway_stations.find({ stationid : i});
+	
+	if(cursor.hasNext()){
+		route += cursor[0].locationtext + "\n";
+		i = cursor[0].downstream;
+	}
+}
+route += toStation[0].locationtext;
+
+// Prints out the final route by locationtext
+print(route);
